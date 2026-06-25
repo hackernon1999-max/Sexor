@@ -27,12 +27,6 @@ jobs:
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
 
-      - name: 📦 Inject iOS SDK
-        run: |
-          curl -LO https://github.com/theos/sdks/archive/master.zip
-          unzip -o -q master.zip
-          mv sdks-master/iPhoneOS14.5.sdk $HOME/theos/sdks/
-
       - name: 🔍 Compile Pure Spyware
         run: |
           export THEOS=$HOME/theos
@@ -40,7 +34,6 @@ jobs:
           export CODESIGN_ALLOCATE=/usr/bin/true
           export THEOS_DEVICE_IP=""
           
-          # زۆر سادە، هیچ فایلی دەرەکی پێویست نییە بۆ کۆمپایلکردن!
           make package FINALPACKAGE=1 messages=yes
 
       - name: 🚀 Deliver Artifact
