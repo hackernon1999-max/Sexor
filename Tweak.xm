@@ -14,7 +14,6 @@
 static UITextView *spyTerminal = nil;
 static NSMutableString *spyLogs = nil;
 
-// قەڵغانی دژە-شێواندن (extern "C") بۆ ئەوەی کۆمپایلەر ناوەکان نەگۆڕێت!
 extern "C" {
     void AddLogToHUD(NSString *message) {
         if (!spyLogs) spyLogs = [[NSMutableString alloc] init];
@@ -54,16 +53,8 @@ extern "C" {
 
 extern "C" {
     void BuildSpyHUD() {
-        UIWindow *mainWindow = nil;
-        if (@available(iOS 13.0, *)) {
-            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-                if (scene.activationState == UISceneActivationStateForegroundActive) {
-                    mainWindow = scene.windows.firstObject; break;
-                }
-            }
-        } else {
-            mainWindow = [UIApplication sharedApplication].keyWindow;
-        }
+        // فێڵی KVC: کۆمپایلەر نازانێت ئێمە keyWindow بەکاردەهێنین، بۆیە ئێرۆر نادات!
+        UIWindow *mainWindow = [[UIApplication sharedApplication] valueForKey:@"keyWindow"];
         
         if (!mainWindow) return;
 
@@ -87,24 +78,21 @@ extern "C" {
 }
 
 // ======================================================================
-// 🪝 تەڵە ڕووتەکان لەژێر قەڵغانی extern "C" (بۆ نەهێشتنی کڕاشی ld)
+// 🪝 تەڵە ڕووتەکان لەژێر قەڵغانی extern "C"
 // ======================================================================
 extern "C" {
-    // ١. چاودێریکردنی vm_protect
     kern_return_t hooked_vm_protect(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
         NSString *log = [NSString stringWithFormat:@"🔓 [PROTECT] ئەدرێس: 0x%lx", address];
         AddLogToHUD(log);
         return vm_protect(target_task, address, size, set_maximum, new_protection);
     }
 
-    // ٢. چاودێریکردنی vm_read_overwrite
     kern_return_t hooked_vm_read_overwrite(vm_map_t target_task, vm_address_t address, vm_size_t size, vm_address_t data, vm_size_t *outsize) {
         NSString *log = [NSString stringWithFormat:@"✍️ [WRITE_O] ئەدرێس: 0x%lx", address];
         AddLogToHUD(log);
         return vm_read_overwrite(target_task, address, size, data, outsize);
     }
 
-    // ٣. چاودێریکردنی vm_write (ڕێک وەک دایلیبەکەی کابرا عەرەبەکە!)
     kern_return_t hooked_vm_write(vm_map_t target_task, vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt) {
         NSString *log = [NSString stringWithFormat:@"🩸 [WRITE] ئەدرێس: 0x%lx", address];
         AddLogToHUD(log);
@@ -112,7 +100,6 @@ extern "C" {
     }
 }
 
-// جێبەجێکردنی سیخوڕییەکە بە ڕەسەنی!
 DYLD_INTERPOSE(hooked_vm_protect, vm_protect);
 DYLD_INTERPOSE(hooked_vm_read_overwrite, vm_read_overwrite);
 DYLD_INTERPOSE(hooked_vm_write, vm_write);
