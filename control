@@ -1,9 +1,9 @@
 Package: com.hama.outlaw.spy
-Name: Outlaw Spy HUD
+Name: Outlaw Pure Spy
 Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Outlaw Dynamic Spyware
+Description: Pure DYLD_INTERPOSE Forensic Tool
 Maintainer: Hama
 Author: Hama
 Section: Tweaks
