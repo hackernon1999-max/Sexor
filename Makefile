@@ -9,6 +9,6 @@ TWEAK_NAME = Outlaw
 
 Outlaw_FILES = Tweak.xm
 Outlaw_FRAMEWORKS = UIKit Foundation
-Outlaw_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
+Outlaw_CFLAGS = -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/tweak.mk
