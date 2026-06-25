@@ -1,0 +1,9 @@
+Package: com.hama.outlaw.spy
+Name: Outlaw Spy HUD
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Outlaw Dynamic Spyware
+Maintainer: Hama
+Author: Hama
+Section: Tweaks
