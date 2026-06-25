@@ -2,7 +2,7 @@
 #import <mach/mach.h>
 
 // ======================================================================
-// 🧬 چەکی نهێنیی ئەپڵ (DYLD_INTERPOSE) - بێ هیچ فایلێکی دەرەکی!
+// 🧬 چەکی نهێنیی ئەپڵ (DYLD_INTERPOSE)
 // ======================================================================
 #define DYLD_INTERPOSE(_replacement,_replacee) \
    __attribute__((used)) static struct{ const void* replacement; const void* replacee; } _interpose_##_replacee \
@@ -14,24 +14,27 @@
 static UITextView *spyTerminal = nil;
 static NSMutableString *spyLogs = nil;
 
-void AddLogToHUD(NSString *message) {
-    if (!spyLogs) spyLogs = [[NSMutableString alloc] init];
-    
-    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat:@"HH:mm:ss.SSS"];
-    NSString *timeString = [formatter stringFromDate:[NSDate date]];
-    
-    NSString *finalMessage = [NSString stringWithFormat:@"[%@] %@\n", timeString, message];
-    
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [spyLogs insertString:finalMessage atIndex:0];
-        if (spyLogs.length > 5000) {
-            [spyLogs deleteCharactersInRange:NSMakeRange(5000, spyLogs.length - 5000)];
-        }
-        if (spyTerminal) {
-            spyTerminal.text = spyLogs;
-        }
-    });
+// قەڵغانی دژە-شێواندن (extern "C") بۆ ئەوەی کۆمپایلەر ناوەکان نەگۆڕێت!
+extern "C" {
+    void AddLogToHUD(NSString *message) {
+        if (!spyLogs) spyLogs = [[NSMutableString alloc] init];
+        
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"HH:mm:ss.SSS"];
+        NSString *timeString = [formatter stringFromDate:[NSDate date]];
+        
+        NSString *finalMessage = [NSString stringWithFormat:@"[%@] %@\n", timeString, message];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [spyLogs insertString:finalMessage atIndex:0];
+            if (spyLogs.length > 5000) {
+                [spyLogs deleteCharactersInRange:NSMakeRange(5000, spyLogs.length - 5000)];
+            }
+            if (spyTerminal) {
+                spyTerminal.text = spyLogs;
+            }
+        });
+    }
 }
 
 @interface SpyHUDPanGesture : UIPanGestureRecognizer
@@ -49,70 +52,73 @@ void AddLogToHUD(NSString *message) {
 }
 @end
 
-void BuildSpyHUD() {
-    UIWindow *mainWindow = nil;
-    if (@available(iOS 13.0, *)) {
-        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                mainWindow = scene.windows.firstObject; break;
+extern "C" {
+    void BuildSpyHUD() {
+        UIWindow *mainWindow = nil;
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    mainWindow = scene.windows.firstObject; break;
+                }
             }
+        } else {
+            mainWindow = [UIApplication sharedApplication].keyWindow;
         }
-    } else {
-        mainWindow = [UIApplication sharedApplication].keyWindow;
+        
+        if (!mainWindow) return;
+
+        spyTerminal = [[UITextView alloc] initWithFrame:CGRectMake(20, 50, 320, 200)];
+        spyTerminal.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.95];
+        spyTerminal.textColor = [UIColor colorWithRed:0.2 green:1.0 blue:0.2 alpha:1.0];
+        spyTerminal.font = [UIFont fontWithName:@"CourierNewPS-BoldMT" size:11] ?: [UIFont boldSystemFontOfSize:11];
+        spyTerminal.editable = NO;
+        spyTerminal.selectable = NO;
+        spyTerminal.layer.cornerRadius = 8;
+        spyTerminal.layer.borderWidth = 1.5;
+        spyTerminal.layer.borderColor = [UIColor colorWithRed:0.2 green:1.0 blue:0.2 alpha:0.8].CGColor;
+        
+        SpyHUDPanGesture *panGesture = [[SpyHUDPanGesture alloc] initWithTarget:nil action:nil];
+        [spyTerminal addGestureRecognizer:panGesture];
+        spyTerminal.userInteractionEnabled = YES;
+        
+        [mainWindow addSubview:spyTerminal];
+        AddLogToHUD(@"👁️ [RAW FORENSICS] کامێراکە کارایە! چاوەڕێین...");
     }
-    
-    if (!mainWindow) return;
-
-    spyTerminal = [[UITextView alloc] initWithFrame:CGRectMake(20, 50, 320, 200)];
-    spyTerminal.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.95];
-    spyTerminal.textColor = [UIColor colorWithRed:0.2 green:1.0 blue:0.2 alpha:1.0];
-    spyTerminal.font = [UIFont fontWithName:@"CourierNewPS-BoldMT" size:11] ?: [UIFont boldSystemFontOfSize:11];
-    spyTerminal.editable = NO;
-    spyTerminal.selectable = NO;
-    spyTerminal.layer.cornerRadius = 8;
-    spyTerminal.layer.borderWidth = 1.5;
-    spyTerminal.layer.borderColor = [UIColor colorWithRed:0.2 green:1.0 blue:0.2 alpha:0.8].CGColor;
-    
-    SpyHUDPanGesture *panGesture = [[SpyHUDPanGesture alloc] initWithTarget:nil action:nil];
-    [spyTerminal addGestureRecognizer:panGesture];
-    spyTerminal.userInteractionEnabled = YES;
-    
-    [mainWindow addSubview:spyTerminal];
-    
-    AddLogToHUD(@"👁️ [RAW FORENSICS] کامێراکە کارایە! چاوەڕێی دایلیبی عەرەبەکەین...");
 }
 
 // ======================================================================
-// 🪝 تەڵە ڕووتەکان (Zero External Libraries)
+// 🪝 تەڵە ڕووتەکان لەژێر قەڵغانی extern "C" (بۆ نەهێشتنی کڕاشی ld)
 // ======================================================================
+extern "C" {
+    // ١. چاودێریکردنی vm_protect
+    kern_return_t hooked_vm_protect(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
+        NSString *log = [NSString stringWithFormat:@"🔓 [PROTECT] ئەدرێس: 0x%lx", address];
+        AddLogToHUD(log);
+        return vm_protect(target_task, address, size, set_maximum, new_protection);
+    }
 
-// ١. چاودێریکردنی vm_protect
-kern_return_t hooked_vm_protect(vm_map_t target_task, vm_address_t address, vm_size_t size, boolean_t set_maximum, vm_prot_t new_protection) {
-    NSString *log = [NSString stringWithFormat:@"🔓 [PROTECT] قفڵ شکێنرا لە: 0x%lx", address];
-    AddLogToHUD(log);
-    // گەڕانەوە بۆ فەرمانە ئەسڵییەکەی ئەپڵ
-    return vm_protect(target_task, address, size, set_maximum, new_protection);
-}
-DYLD_INTERPOSE(hooked_vm_protect, vm_protect); // جێبەجێکردنی سیخوڕییەکە بە ڕەسەنی!
+    // ٢. چاودێریکردنی vm_read_overwrite
+    kern_return_t hooked_vm_read_overwrite(vm_map_t target_task, vm_address_t address, vm_size_t size, vm_address_t data, vm_size_t *outsize) {
+        NSString *log = [NSString stringWithFormat:@"✍️ [WRITE_O] ئەدرێس: 0x%lx", address];
+        AddLogToHUD(log);
+        return vm_read_overwrite(target_task, address, size, data, outsize);
+    }
 
-// ٢. چاودێریکردنی vm_read_overwrite (کە ئەو هاکەرە بەکاری دەهێنێت)
-kern_return_t hooked_vm_read_overwrite(vm_map_t target_task, vm_address_t address, vm_size_t size, vm_address_t data, vm_size_t *outsize) {
-    NSString *log = [NSString stringWithFormat:@"✍️ [WRITE] هێکس نووسرا لە: 0x%lx", address];
-    AddLogToHUD(log);
-    return vm_read_overwrite(target_task, address, size, data, outsize);
+    // ٣. چاودێریکردنی vm_write (ڕێک وەک دایلیبەکەی کابرا عەرەبەکە!)
+    kern_return_t hooked_vm_write(vm_map_t target_task, vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt) {
+        NSString *log = [NSString stringWithFormat:@"🩸 [WRITE] ئەدرێس: 0x%lx", address];
+        AddLogToHUD(log);
+        return vm_write(target_task, address, data, dataCnt);
+    }
 }
+
+// جێبەجێکردنی سیخوڕییەکە بە ڕەسەنی!
+DYLD_INTERPOSE(hooked_vm_protect, vm_protect);
 DYLD_INTERPOSE(hooked_vm_read_overwrite, vm_read_overwrite);
-
-// ٣. چاودێریکردنی mach_vm_write
-kern_return_t hooked_mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt) {
-    NSString *log = [NSString stringWithFormat:@"🩸 [MACH_WRITE] پاتچ کرا لە: 0x%llx", address];
-    AddLogToHUD(log);
-    return mach_vm_write(target_task, address, data, dataCnt);
-}
-DYLD_INTERPOSE(hooked_mach_vm_write, mach_vm_write);
+DYLD_INTERPOSE(hooked_vm_write, vm_write);
 
 // ======================================================================
-// 🚀 داگیرساندنی شاشەکە بەبێ هاک
+// 🚀 داگیرساندنی شاشەکە
 // ======================================================================
 __attribute__((constructor))
 static void Outlaw_Spy_Deployer() {
