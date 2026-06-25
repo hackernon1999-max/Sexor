@@ -36,8 +36,18 @@ jobs:
           
           make package FINALPACKAGE=1 messages=yes
 
-      - name: 🚀 Deliver Artifact
+      # =================================================================
+      # 🚨 هەنگاوە نوێیەکە: دەرهێنانی تەنیا DYLIB بۆ مۆبایلی بێ جەیڵبرەیک
+      # =================================================================
+      - name: 🗂️ Extract Pure DYLIB (No Jailbreak)
+        run: |
+          mkdir -p Outlaw_Payload
+          # گەڕان لەناو فۆڵدەرە شاراوەکە و هێنانە دەرەوەی تەنیا دایلیب
+          find .theos/obj -name "*.dylib" -exec cp {} ./Outlaw_Payload/ \;
+          ls -lh Outlaw_Payload/
+
+      - name: 🚀 Deliver DYLIB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Outlaw_Spy_HUD
-          path: packages/
+          name: Outlaw_Spy_DYLIB_Only
+          path: Outlaw_Payload/
