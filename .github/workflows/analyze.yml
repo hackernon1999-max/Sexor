@@ -1,18 +1,36 @@
-name: Analyze Dylib File
+name: Analyze Dylib File From Link
 
 on:
-  push:
-    paths:
-      - '**.dylib' # کاتێک فایلێکی دیانامیک لایبرەری ئەپڵۆد دەکەیت کار دەکات
-  workflow_dispatch: # ڕێگەت پێدەدات بە دەستی خۆت ڕەنی بکەیت
+  workflow_dispatch: # ڕێگەت پێدەدات بە دەستی خۆت لینکەکە بنووسیت و ڕەنی بکەیت
+    inputs:
+      dylib_url:
+        description: 'لینکە ڕاستەوخۆکەی فایلی .dylib لێرە دابنێ'
+        required: true
+        type: string
 
 jobs:
   analyze-dylib:
-    runs-on: macos-latest # لێرەدا ماک بەکاردێنین چونکە ئامرازەکانی ئەپڵ لێرە باشتر کار دەکەن
+    runs-on: macos-latest # بەکارهێنانی ماک بۆ کارکردنی دروستی nm و strings
     
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+
+    - name: Download Dylib from Link
+      run: |
+        URL="${{ github.event.inputs.dylib_url }}"
+        
+        # دەرهێنانی ناوی ڕاستەقینەی فایلەکە لە کۆتایی لینکەکەوە
+        FILENAME=$(basename "$URL" | cut -d? -f1)
+        
+        # ئەگەر پاشکۆی .dylib بەستراو نەبوو، ناوێکی جێگیری دەدەینێ تا کۆدەکە نەوەستێت
+        if [[ "$FILENAME" != *.dylib ]]; then
+          FILENAME="downloaded_file.dylib"
+        fi
+        
+        echo "داگرتنی فایل لە ناونیشانی: $URL"
+        curl -L -o "$FILENAME" "$URL"
+        echo "فایلەکە بە سەرکەوتوویی دابەزی وەک: $FILENAME"
 
     - name: Process Dylib and Extract Human-Readable Data
       run: |
@@ -36,7 +54,6 @@ jobs:
             echo -e "\n=========================================" >> "$output_file"
             echo "دەقە تێگەیشتووەکانی ناو باینەرییەکە (Strings):" >> "$output_file"
             echo "=========================================" >> "$output_file"
-            # ئەم بەشە تەنها ئەو دەقانە دەردەکات کە پیتی ئاسایین و درێژییان لە ٤ پیت زیاترە
             strings "$file" | grep -E '^[a-zA-Z0-9_\.\-\/ ]{4,100}$' | sort -u >> "$output_file"
           fi
         done
