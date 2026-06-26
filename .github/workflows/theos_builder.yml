@@ -1,53 +1,48 @@
-name: 🏭 PURE FORENSIC Builder
+name: Analyze Dylib File
 
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - '**.dylib' # کاتێک فایلێکی دیانامیک لایبرەری ئەپڵۆد دەکەیت کار دەکات
+  workflow_dispatch: # ڕێگەت پێدەدات بە دەستی خۆت ڕەنی بکەیت
 
 jobs:
-  Build_Spy_Module:
-    runs-on: macos-latest
-    timeout-minutes: 6
-
+  analyze-dylib:
+    runs-on: macos-latest # لێرەدا ماک بەکاردێنین چونکە ئامرازەکانی ئەپڵ لێرە باشتر کار دەکەن
+    
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: 🧽 Clean CRLF
-        run: |
-          brew install dos2unix
-          dos2unix Makefile control Tweak.xm || true
+    - name: Process Dylib and Extract Human-Readable Data
+      run: |
+        mkdir -p analysis_results
+        
+        for file in *.dylib; do
+          if [ -f "$file" ]; then
+            echo "کاردەکات لەسەر شیکردنەوەی: $file"
+            output_file="analysis_results/${file}_readable.txt"
+            
+            echo "=========================================" > "$output_file"
+            echo "زانیاری گشتی دەربارەی فایلەکە:" >> "$output_file"
+            echo "=========================================" >> "$output_file"
+            file "$file" >> "$output_file"
+            
+            echo -e "\n=========================================" >> "$output_file"
+            echo "فەنکشنەکان و ناوەکانی ناو کۆدەکە (Symbols):" >> "$output_file"
+            echo "=========================================" >> "$output_file"
+            nm -gU "$file" >> "$output_file" || echo "هیچ هێمایەک نەدۆزرایەوە (ڕەنگە سڕابێتەوە/Stripped)" >> "$output_file"
+            
+            echo -e "\n=========================================" >> "$output_file"
+            echo "دەقە تێگەیشتووەکانی ناو باینەرییەکە (Strings):" >> "$output_file"
+            echo "=========================================" >> "$output_file"
+            # ئەم بەشە تەنها ئەو دەقانە دەردەکات کە پیتی ئاسایین و درێژییان لە ٤ پیت زیاترە
+            strings "$file" | grep -E '^[a-zA-Z0-9_\.\-\/ ]{4,100}$' | sort -u >> "$output_file"
+          fi
+        done
 
-      - name: 🍺 Install Theos Dependencies
-        run: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          brew install dpkg ldid
-
-      - name: ⚙️ Setup Theos
-        run: |
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-
-      - name: 🔍 Compile Pure Spyware
-        run: |
-          export THEOS=$HOME/theos
-          export PATH=$THEOS/bin:$PATH
-          export CODESIGN_ALLOCATE=/usr/bin/true
-          export THEOS_DEVICE_IP=""
-          
-          make package FINALPACKAGE=1 messages=yes
-
-      # =================================================================
-      # 🚨 هەنگاوە نوێیەکە: دەرهێنانی تەنیا DYLIB بۆ مۆبایلی بێ جەیڵبرەیک
-      # =================================================================
-      - name: 🗂️ Extract Pure DYLIB (No Jailbreak)
-        run: |
-          mkdir -p Outlaw_Payload
-          # گەڕان لەناو فۆڵدەرە شاراوەکە و هێنانە دەرەوەی تەنیا دایلیب
-          find .theos/obj -name "*.dylib" -exec cp {} ./Outlaw_Payload/ \;
-          ls -lh Outlaw_Payload/
-
-      - name: 🚀 Deliver DYLIB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Outlaw_Spy_DYLIB_Only
-          path: Outlaw_Payload/
+    - name: Upload Analysis Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: Dylib-Human-Readable-Report
+        path: analysis_results/
